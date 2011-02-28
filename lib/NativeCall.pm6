@@ -102,14 +102,18 @@ our multi trait_mod:<is>(Routine $r, $libname?, :$native!) {
         }
     }
     pir::setattribute__vPsP($r, '$!do', -> |$c {
-        $return-mapper(
-            pir::descalarref__PP( (pir::dlfunc__PPss(
-                ($lib ?? pir::descalarref__PP($lib) !! pir::null__P()),
-                $entry-point,
-                $call-sig
-                ) // die("Could not locate symbol '$entry-point' in native library '{$libname || q<(resident)>}'")
-            ).(|$c) )
-        )
+        my $func = pir::dlfunc__PPss(
+            ($lib ?? pir::descalarref__PP($lib) !! pir::null__P()),
+            $entry-point,
+            $call-sig
+        );
+        $func // die("Could not locate symbol '$entry-point' in native library '{$libname || q<(resident)>}'");
+        my $res;
+        try {
+            $res = $func.(|$c);
+            CATCH { }
+        };
+        $return-mapper(pir::descalarref__PP($res));
     });
 }
 

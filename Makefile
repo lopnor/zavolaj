@@ -1,58 +1,66 @@
-# Makefile for zavolaj's NativeCall.pm
+.PHONY: all build test install clean distclean purge
 
-PERL_EXE  = perl
-PERL6_EXE = perl6
-CP        = $(PERL_EXE) -MExtUtils::Command -e cp
-RM_F      = $(PERL_EXE) -MExtUtils::Command -e rm_f
-TEST_F    = $(PERL_EXE) -MExtUtils::Command -e test_f
-# try to make these OS agnostic (ie use the same definition on Unix and Windows)
-LIBSYSTEM = $(shell $(PERL6_EXE) -e 'print @*INC[2]')
-LIBUSER   = $(shell $(PERL6_EXE) -e 'print @*INC[1]')
+PERL6 = perl6
+PREFIX = ~/.perl6
+BLIB = blib
+P6LIB = $(PWD)/$(BLIB)/lib:$(PWD)/lib:$(PERL6LIB)
 
-# first the default target
-lib/NativeCall.pir: lib/NativeCall.pm6
-	$(PERL6_EXE) --target=pir --output=lib/NativeCall.pir lib/NativeCall.pm6
+SOURCES=lib/NativeCall.pm6
+SCRIPTS=
+PIRS = $(patsubst %.pm6,%.pir,$(SOURCES:%.pm=%.pir))
+BLIB_PIRS = $(PIRS:%=$(BLIB)/%)
+BLIB_PMS = $(SOURCES:%=$(BLIB)/%)
+INSTALL_SOURCES = $(SOURCES:%=$(PREFIX)/%)
+INSTALL_SCRIPTS = $(SCRIPTS:%=$(PREFIX)/%)
+INSTALL_PIRS = $(PIRS:%=$(PREFIX)/%)
+TESTS = $(shell if [ -d 't' ]; then find t -name '*.t'; fi)
 
-clean:
-	@# delete compiled files
-	$(RM_F) lib/*.pir
-	@# delete all editor backup files
-	$(RM_F) *~ lib/*~
+all:: build
 
-# standard install is to the shared system wide directory
-install: lib/NativeCall.pir
-	@echo "--> $(LIBSYSTEM)"
-	@$(CP) lib/NativeCall.pm6 lib/NativeCall.pir $(LIBSYSTEM)
+build:: $(BLIB_PIRS) $(BLIB_PMS)
 
-# if user has no permission to install globally, try a personal directory 
-install-user: lib/NativeCall.pir
-	@echo "--> $(LIBUSER)"
-	@$(CP) lib/NativeCall.pm6 lib/NativeCall.pir $(LIBUSER)
+$(BLIB)/%.pm:: %.pm
+	mkdir -p `dirname '$@'`
+	cp $< $@
 
-# standard uninstall from the shared system wide directory
-uninstall:
-	@echo "x-> $(LIBSYSTEM)"
-	@$(TEST_F) $(LIBSYSTEM)/NativeCall.pm6
-	@$(RM_F)   $(LIBSYSTEM)/NativeCall.pm6
-	@$(TEST_F) $(LIBSYSTEM)/NativeCall.pir
-	@$(RM_F)   $(LIBSYSTEM)/NativeCall.pir
+$(BLIB)/%.pm6:: %.pm6
+	mkdir -p `dirname '$@'`
+	cp $< $@
 
-# uninstall from the user's own Perl 6 directory
-uninstall-user:
-	@echo "x-> $(LIBUSER)"
-	@$(TEST_F) $(LIBUSER)/NativeCall.pm6
-	@$(RM_F)   $(LIBUSER)/NativeCall.pm6
-	@$(TEST_F) $(LIBUSER)/NativeCall.pir
-	@$(RM_F)   $(LIBUSER)/NativeCall.pir
+$(BLIB)/%.pir:: %.pm
+	mkdir -p `dirname '$@'`
+	env PERL6LIB=$(P6LIB) $(PERL6) --target=pir --output=$@ $<
 
-help:
-	@echo
-	@echo "You can make the following in 'zavolaj':"
-	@echo "test           runs a local test suite"
-	@echo "clean          removes compiled, temporary and backup files"
-	@echo "install        copies .pm6 and .pir file(s) to system lib/"
-	@echo "               (may need admin or root permission)"
-	@echo "uninstall      removes .pm6 and .pir file(s) from system lib/"
-	@echo "install-user   copies .pm6 and .pir file(s) to user's lib/"
-	@echo "uninstall-user removes .pm6 and .pir file(s) from user's lib/"
+$(BLIB)/%.pir:: %.pm6
+	mkdir -p `dirname '$@'`
+	env PERL6LIB=$(P6LIB) $(PERL6) --target=pir --output=$@ $<
 
+test:: build
+	env PERL6LIB=$(P6LIB) prove -e '$(PERL6)' -r t/
+
+$(TESTS):: build
+	env PERL6LIB=$(P6LIB) prove -v -e '$(PERL6)' -r $@
+
+install:: build $(INSTALL_SOURCES) $(INSTALL_PIRS) $(INSTALL_SCRIPTS)
+
+$(PREFIX)/%.pm:: %.pm
+	mkdir -p `dirname '$@'`
+	install $< $@
+
+$(PREFIX)/%.pm6:: %.pm6
+	mkdir -p `dirname '$@'`
+	install $< $@
+
+$(PREFIX)/%.pir:: blib/%.pir
+	mkdir -p `dirname '$@'`
+	install $< $@
+
+$(PREFIX)/bin/%:: bin/%
+	mkdir -p `dirname '$@'`
+	install $< $@
+
+clean::
+	rm -fr $(BLIB)
+
+distclean purge:: clean
+	rm -r Makefile
