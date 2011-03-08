@@ -15,6 +15,9 @@ INSTALL_SCRIPTS = $(SCRIPTS:%=$(PREFIX)/%)
 INSTALL_PIRS = $(PIRS:%=$(PREFIX)/%)
 TESTS = $(shell if [ -d 't' ]; then find t -name '*.t'; fi)
 
+PARROT_BUILD_DIR = $(shell parrot_config build_dir)
+DYNEXT_DIR = $(PARROT_BUILD_DIR)/runtime/parrot/dynext
+
 all:: build
 
 build:: $(BLIB_PIRS) $(BLIB_PMS)
@@ -36,10 +39,10 @@ $(BLIB)/%.pir:: %.pm6
 	env PERL6LIB=$(P6LIB) $(PERL6) --target=pir --output=$@ $<
 
 test:: build
-	env PERL6LIB=$(P6LIB) prove -e '$(PERL6)' -r t/
+	env PERL6LIB=$(P6LIB) LD_LIBRARY_PATH=$(DYNEXT_DIR) prove -e '$(PERL6)' -r t/
 
 $(TESTS):: build
-	env PERL6LIB=$(P6LIB) prove -v -e '$(PERL6)' -r $@
+	env PERL6LIB=$(P6LIB) LD_LIBRARY_PATH=$(DYNEXT_DIR) prove -v -e '$(PERL6)' -r $@
 
 install:: build $(INSTALL_SOURCES) $(INSTALL_PIRS) $(INSTALL_SCRIPTS)
 
