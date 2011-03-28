@@ -10,11 +10,16 @@ class NativeArray {
             self!update-desc-to-index($idx);
         }
         Q:PIR {
+            .local pmc bb
+            .local string s
             $P0 = find_lex 'self'
             $P0 = getattribute $P0, '$!unmanaged'
             $P1 = find_lex '$idx'
+            bb = new ['ByteBuffer']
             $S0 = $P0[$P1]
-            %r = box $S0
+            bb = $S0
+            s = bb.'get_string'('utf8')
+            %r = box s
         };
     }
 
